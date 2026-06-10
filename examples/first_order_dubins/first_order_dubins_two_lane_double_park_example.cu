@@ -165,7 +165,7 @@ int main(int argc, char** argv)
   x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::POS_X)) = p0.x;
   x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::POS_Y)) = p0.y;
   x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::YAW)) = p0.yaw;
-  x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::VEL_X)) = 0.0;
+  x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::VEL_X)) = kTargetSpeed;
 
   std::vector<float> obs_traj_x;
   std::vector<float> obs_traj_y;
