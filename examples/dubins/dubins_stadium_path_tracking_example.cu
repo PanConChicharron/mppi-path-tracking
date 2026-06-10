@@ -22,7 +22,7 @@
  namespace
  {
    // --- Simulation Parameters ---
-   constexpr int kMppiHorizon = 50;
+   constexpr int kMppiHorizon = 80;
    constexpr int kRefHorizon = kMppiHorizon;
    constexpr float kDt = 0.1F;
    constexpr int kNumRollouts = 4*1024;

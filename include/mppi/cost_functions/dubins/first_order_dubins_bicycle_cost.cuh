@@ -36,7 +36,7 @@ struct FirstOrderDubinsBicycleCostParams : public CostParams<2>
   /** Added to ego half-length/width in OBB collision test (~standoff to obstacle surfaces). */
   float obstacle_collision_margin = 0.2F;
   /** Pull toward ref end position (Euclidean distance [m]); 0 disables. */
-  float goal_pos_coeff = 1000.0F;
+  float goal_pos_coeff = 2000.0F;
   /** Pull toward ref end speed: coeff * (v - ref_v_end)^2; 0 disables. */
   float goal_speed_coeff = 0.0F;
   /** Pull toward ref end heading: coeff * |yaw - ref_yaw_end|; 0 disables. */

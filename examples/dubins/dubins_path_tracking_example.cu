@@ -31,7 +31,7 @@
 
 namespace
 {
-constexpr int kMppiHorizon = 50;
+constexpr int kMppiHorizon = 80;
 constexpr int kRefHorizon = kMppiHorizon + 8;
 constexpr int kSimSteps = 800;
 constexpr float kDt = 0.1F;

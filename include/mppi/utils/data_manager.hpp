@@ -382,10 +382,12 @@ public:
   template <class CTRL_T, class SAMPLER_T, class ControlTrajT>
   void dumpRolloutSnapshot(int step, float sim_time, const state_array& x, CTRL_T& controller, DYN_T& model,
                            SAMPLER_T& sampler, int horizon, float lambda, float dt, const ControlTrajT& u_opt,
-                           const RolloutOutputIndices& out_idx, int top_n = kDefaultTopRollouts)
+                           const RolloutOutputIndices& out_idx, int top_n = kDefaultTopRollouts,
+                           const std::vector<float>& obstacle_context = {})
   {
     RolloutSnapshotJob job =
         prepareRolloutSnapshot(step, sim_time, x, controller, model, sampler, horizon, lambda, dt, u_opt, out_idx, top_n);
+    job.obstacle_context = obstacle_context;
     if (job.valid)
     {
       if (async_rollout_dumps_)
@@ -527,6 +529,7 @@ private:
     RolloutWeightBundle weights;
     RolloutWeightBundle top_weights;
     std::vector<float> host_controls;
+    std::vector<float> obstacle_context;
     std::string step_dir;
   };
 
@@ -573,6 +576,11 @@ private:
     rollout_csv::writeCosts(job.step_dir + "/costs.csv", job.weights.raw_costs, job.weights.unnormalized_importance,
                             job.weights.normalized_weights);
     rollout_csv::writeCombinedTrajectory<DYN_T>(model, job.x, job.u_opt, job.step_dir + "/combined.csv", job.dt);
+    if (!job.obstacle_context.empty())
+    {
+      rollout_csv::writeContextVector(job.step_dir + "/context.csv", job.obstacle_context.data(),
+                                      static_cast<int>(job.obstacle_context.size()));
+    }
 
     std::vector<output_trajectory_t> top_outputs;
     hostReplayRolloutsFromControls<DYN_T, output_trajectory_t>(model, job.x, job.horizon, job.dt,

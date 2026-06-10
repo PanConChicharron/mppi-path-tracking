@@ -18,6 +18,7 @@
 #include <mppi/path/path_reference_generator.hpp>
 #include <mppi/path/path2d.hpp>
 #include <mppi/sampling_distributions/gaussian/gaussian.cuh>
+#include <mppi/sampling_distributions/diffusion/obstacle_context.hpp>
 
 #include <mppi/viz/path_tracking_viz.hpp>
 #include <mppi/utils/step_timing.hpp>
@@ -33,7 +34,7 @@
 
 namespace
 {
-  constexpr int kMppiHorizon = 50;
+  constexpr int kMppiHorizon = 80;
   constexpr int kRefHorizon = kMppiHorizon;
   constexpr float kDt = 0.1F;
   constexpr int kNumRollouts = 32 * 1024;
@@ -85,6 +86,8 @@ int main(int argc, char** argv)
 
   const mppi::path::Path2D path = mppi::path::Path2D::stadium(kStraightLength, kTurnRadius, kSamplesPerArc);
 
+  constexpr float kRoadHalfWidth = 0.8F;
+
   mppi::data::MppiDataManager<DYN> data_mgr;
   if (!data_mgr.beginRun(log_path, path))
   {
@@ -92,7 +95,6 @@ int main(int argc, char** argv)
   }
   data_mgr.setRoadBoundaryLimits(kRoadHalfWidth, kRoadHalfWidth);
 
-  constexpr float kRoadHalfWidth = 0.8F;
   const std::vector<mppi::cost::ParkedCarObstacle> parked_cars =
       mppi::cost::generateParkedCarsAlongRoad(path, kRoadHalfWidth, seed);
   std::cout << "Parked cars along track: " << parked_cars.size() << "\n";
@@ -219,8 +221,16 @@ int main(int argc, char** argv)
 
     u_opt = u_opt_traj;
 
+    const std::vector<float> diffusion_context =
+        mppi::sampling_distributions::diffusion::encodeDiffusionObstacleContextFromParkedCars(
+            x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::POS_X)),
+            x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::POS_Y)),
+            x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::YAW)),
+            x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::VEL_X)), kRoadHalfWidth, kRoadHalfWidth,
+            parked_cars);
+
     data_mgr.dumpRolloutSnapshot(k, sim_time, x, controller, model, sampler, kMppiHorizon, kLambda, kDt, u_opt_traj,
-                                 kRolloutOutIdx);
+                                 kRolloutOutIdx, mppi::data::kDefaultTopRollouts, diffusion_context);
     step_timing.endDump();
 
     const auto state_trajectory = controller.getActualStateSeq();

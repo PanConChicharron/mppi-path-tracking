@@ -19,6 +19,7 @@
 #include <mppi/path/path_reference_generator.hpp>
 #include <mppi/path/path2d.hpp>
 #include <mppi/sampling_distributions/gaussian/gaussian.cuh>
+#include <mppi/sampling_distributions/diffusion/obstacle_context.hpp>
 
 #include <mppi/viz/path_tracking_viz.hpp>
 #include <mppi/utils/step_timing.hpp>
@@ -237,8 +238,16 @@ int main(int argc, char** argv)
     const Mppi::control_trajectory u_opt_traj = controller.getControlSeq();
     u_opt = u_opt_traj;
 
+    const std::vector<float> diffusion_context =
+        mppi::sampling_distributions::diffusion::encodeDiffusionObstacleContextFromMovingCars(
+            x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::POS_X)),
+            x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::POS_Y)),
+            x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::YAW)),
+            x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::VEL_X)), kBoundaryLeft, kBoundaryRight,
+            obstacles, sim_time);
+
     data_mgr.dumpRolloutSnapshot(k, sim_time, x, controller, model, sampler, kMppiHorizon, kLambda, kDt, u_opt_traj,
-                                 kRolloutOutIdx);
+                                 kRolloutOutIdx, mppi::data::kDefaultTopRollouts, diffusion_context);
     step_timing.endDump();
 
     const auto state_trajectory = controller.getActualStateSeq();

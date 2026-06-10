@@ -13,6 +13,7 @@
  *   <prefix>_combined.csv   : step,t,x,y,yaw,vel_x,steer,u_accel,u_steer
  *   <prefix>_rollouts_xy.csv: rollout_index,step,x,y,yaw,vel_x
  *   <prefix>_rollouts_controls.csv: rollout_index,step,u_accel,u_steer
+ *   <prefix>_context.csv       : index,value  (diffusion obstacle context vector)
  */
 #ifndef MPPI_UTILS_ROLLOUT_CSV_HPP_
 #define MPPI_UTILS_ROLLOUT_CSV_HPP_
@@ -268,6 +269,20 @@ void writeRolloutControls(const std::string& path, const std::vector<float>& hos
                          (out_idx * stride + static_cast<size_t>(t) * static_cast<size_t>(DYN_T::CONTROL_DIM));
       f << rollout_index << "," << t << "," << src[0] << "," << src[1] << "\n";
     }
+  }
+}
+
+inline void writeContextVector(const std::string& path, const float* context, int context_dim)
+{
+  std::ofstream f(path.c_str());
+  if (!f || context == nullptr || context_dim <= 0)
+  {
+    return;
+  }
+  f << "index,value\n";
+  for (int i = 0; i < context_dim; ++i)
+  {
+    f << i << "," << context[i] << "\n";
   }
 }
 }  // namespace rollout_csv
