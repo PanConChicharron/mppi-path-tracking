@@ -1,0 +1,3 @@
+[submodule "lib/MPPI-Generic"]
+	path = lib/MPPI-Generic
+	url = https://github.com/ACDSLab/MPPI-Generic.git
