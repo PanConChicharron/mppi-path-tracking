@@ -13,7 +13,7 @@ template <int NUM_TIMESTEPS>
 struct FirstOrderDubinsBicycleCostParams : public CostParams<2>
 {
   float desired_speed = 2.5F;
-  float speed_coeff = 3000.0F;
+  float speed_coeff = 500.0F;
   float track_coeff = 1000.0F;
   /** Per-violation crash penalty; latched crash_status counts violations (1=off-road or hit, 2=both). */
   float crash_coeff = 100000.0F;
@@ -35,6 +35,14 @@ struct FirstOrderDubinsBicycleCostParams : public CostParams<2>
   float ego_axle_to_box_center = 0.2F;
   /** Added to ego half-length/width in OBB collision test (~standoff to obstacle surfaces). */
   float obstacle_collision_margin = 0.2F;
+  /** Pull toward ref end position (Euclidean distance [m]); 0 disables. */
+  float goal_pos_coeff = 1000.0F;
+  /** Pull toward ref end speed: coeff * (v - ref_v_end)^2; 0 disables. */
+  float goal_speed_coeff = 0.0F;
+  /** Pull toward ref end heading: coeff * |yaw - ref_yaw_end|; 0 disables. */
+  float goal_yaw_coeff = 0.0F;
+  /** Multiplier on goal terms in terminalCost (running state cost uses scale 1). */
+  float goal_terminal_scale = 10.0F;
 };
 
 template <class CLASS_T, int NUM_TIMESTEPS,
@@ -53,7 +61,8 @@ public:
 
   void paramsToDevice();
 
-  void setReferenceTrajectory(const float* x, const float* y, const float* v, int count);
+  void setReferenceTrajectory(const float* x, const float* y, const float* v, int count,
+                              const float* yaw = nullptr);
 
   /** Static obstacles: same pose replicated at every MPPI horizon step. */
   void setOrientedBoxObstacles(const float* x, const float* y, const float* yaw, const float* half_length,
@@ -66,6 +75,9 @@ public:
   void clearObstacles();
 
   __host__ __device__ float computeTrackValue(float x, float y) const;
+
+  /** Distance-to-goal cost vs ref[NUM_TIMESTEPS - 1] (position, speed, yaw). */
+  __host__ __device__ float computeGoalCost(float x, float y, float yaw, float vel) const;
 
   __host__ __device__ float computeSignedLateralOffset(float x, float y) const;
 
@@ -104,6 +116,7 @@ public:
   float ref_x_[NUM_TIMESTEPS] = {};
   float ref_y_[NUM_TIMESTEPS] = {};
   float ref_v_[NUM_TIMESTEPS] = {};
+  float ref_yaw_[NUM_TIMESTEPS] = {};
   int num_obstacles_ = 0;
   float obs_x_[kMaxObstacles][NUM_TIMESTEPS] = {};
   float obs_y_[kMaxObstacles][NUM_TIMESTEPS] = {};

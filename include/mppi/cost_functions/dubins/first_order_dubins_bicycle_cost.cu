@@ -1,5 +1,6 @@
 #include <mppi/cost_functions/path_tracking_geometry.cuh>
 #include <mppi/cost_functions/dubins/first_order_dubins_bicycle_cost.cuh>
+#include <mppi/utils/angle_utils.cuh>
 
 #include <algorithm>
 #include <cmath>
@@ -12,6 +13,28 @@ using mppi::cost::detail::distancePointToSegment;
 using mppi::cost::detail::orientedBoxesOverlap;
 using mppi::cost::detail::signedLateralOffsetPointToSegment;
 using mppi::cost::detail::vectorLength;
+
+template <int NUM_TIMESTEPS>
+__host__ __device__ float referenceEndYaw(const float* x, const float* y, const float* yaw, int count)
+{
+  if (count <= 0)
+  {
+    return 0.0F;
+  }
+  if (yaw != nullptr)
+  {
+    return yaw[count - 1];
+  }
+  if (count >= 2)
+  {
+#ifdef __CUDA_ARCH__
+    return atan2f(y[count - 1] - y[count - 2], x[count - 1] - x[count - 2]);
+#else
+    return std::atan2(y[count - 1] - y[count - 2], x[count - 1] - x[count - 2]);
+#endif
+  }
+  return 0.0F;
+}
 
 template <class PARAMS_T>
 __host__ __device__ void comfortTerms(const PARAMS_T& params, const float* u, const float* y, float& lateral_accel,
@@ -67,6 +90,7 @@ void FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS, PARAMS_T, DYN_PARAM
   HANDLE_ERROR(cudaMemcpyAsync(this->cost_d_->ref_x_, ref_x_, sizeof(ref_x_), cudaMemcpyHostToDevice, this->stream_));
   HANDLE_ERROR(cudaMemcpyAsync(this->cost_d_->ref_y_, ref_y_, sizeof(ref_y_), cudaMemcpyHostToDevice, this->stream_));
   HANDLE_ERROR(cudaMemcpyAsync(this->cost_d_->ref_v_, ref_v_, sizeof(ref_v_), cudaMemcpyHostToDevice, this->stream_));
+  HANDLE_ERROR(cudaMemcpyAsync(this->cost_d_->ref_yaw_, ref_yaw_, sizeof(ref_yaw_), cudaMemcpyHostToDevice, this->stream_));
   HANDLE_ERROR(cudaMemcpyAsync(&this->cost_d_->num_obstacles_, &num_obstacles_, sizeof(num_obstacles_),
                                cudaMemcpyHostToDevice, this->stream_));
   HANDLE_ERROR(cudaMemcpyAsync(this->cost_d_->obs_x_, obs_x_, sizeof(obs_x_), cudaMemcpyHostToDevice, this->stream_));
@@ -80,14 +104,31 @@ void FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS, PARAMS_T, DYN_PARAM
 
 template <class CLASS_T, int NUM_TIMESTEPS, class PARAMS_T, class DYN_PARAMS_T>
 void FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS, PARAMS_T, DYN_PARAMS_T>::setReferenceTrajectory(
-    const float* x, const float* y, const float* v, const int count)
+    const float* x, const float* y, const float* v, const int count, const float* yaw)
 {
   const int n = std::max(0, std::min(count, NUM_TIMESTEPS));
+  const float end_yaw = referenceEndYaw<NUM_TIMESTEPS>(x, y, yaw, n);
   for (int i = 0; i < n; ++i)
   {
     ref_x_[i] = x[i];
     ref_y_[i] = y[i];
     ref_v_[i] = v != nullptr ? v[i] : this->params_.desired_speed;
+    if (yaw != nullptr)
+    {
+      ref_yaw_[i] = yaw[i];
+    }
+    else if (i >= 1)
+    {
+#ifdef __CUDA_ARCH__
+      ref_yaw_[i] = atan2f(y[i] - y[i - 1], x[i] - x[i - 1]);
+#else
+      ref_yaw_[i] = std::atan2(y[i] - y[i - 1], x[i] - x[i - 1]);
+#endif
+    }
+    else
+    {
+      ref_yaw_[i] = end_yaw;
+    }
   }
   if (n > 0)
   {
@@ -96,6 +137,7 @@ void FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS, PARAMS_T, DYN_PARAM
       ref_x_[i] = x[n - 1];
       ref_y_[i] = y[n - 1];
       ref_v_[i] = v != nullptr ? v[n - 1] : this->params_.desired_speed;
+      ref_yaw_[i] = end_yaw;
     }
   }
   dataToDevice();
@@ -186,6 +228,38 @@ __host__ __device__ float FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS
 
 template <class CLASS_T, int NUM_TIMESTEPS, class PARAMS_T, class DYN_PARAMS_T>
 __host__ __device__ float
+FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS, PARAMS_T, DYN_PARAMS_T>::computeGoalCost(const float x,
+                                                                                                 const float y,
+                                                                                                 const float yaw,
+                                                                                                 const float vel) const
+{
+  constexpr int kEnd = NUM_TIMESTEPS - 1;
+  float cost = 0.0F;
+
+  if (this->params_.goal_pos_coeff > 0.0F)
+  {
+    cost += this->params_.goal_pos_coeff * vectorLength(x - ref_x_[kEnd], y - ref_y_[kEnd]);
+  }
+  if (this->params_.goal_speed_coeff > 0.0F)
+  {
+    const float vel_diff = vel - ref_v_[kEnd];
+    cost += this->params_.goal_speed_coeff * vel_diff * vel_diff;
+  }
+  if (this->params_.goal_yaw_coeff > 0.0F)
+  {
+    const float yaw_diff = angle_utils::shortestAngularDistance(yaw, ref_yaw_[kEnd]);
+#ifdef __CUDA_ARCH__
+    cost += this->params_.goal_yaw_coeff * fabsf(yaw_diff);
+#else
+    cost += this->params_.goal_yaw_coeff * std::abs(yaw_diff);
+#endif
+  }
+
+  return cost;
+}
+
+template <class CLASS_T, int NUM_TIMESTEPS, class PARAMS_T, class DYN_PARAMS_T>
+__host__ __device__ float
 FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS, PARAMS_T, DYN_PARAMS_T>::computeSignedLateralOffset(
     const float x, const float y) const
 {
@@ -267,6 +341,9 @@ FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS, PARAMS_T, DYN_PARAMS_T>:
   const float ego_hl = this->params_.ego_length * 0.5F + margin;
   const float ego_hw = this->params_.ego_width * 0.5F + margin;
 
+  #ifdef __CUDA_ARCH__
+  #pragma unroll
+  #endif
   for (int i = 0; i < num_obstacles_; ++i)
   {
 #ifdef __CUDA_ARCH__
@@ -335,9 +412,10 @@ __device__ float FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS, PARAMS_
   const float vel_diff = vel - ref_v_[timestep];
   const float speed_cost = this->params_.speed_coeff * (vel_diff * vel_diff);
   const float track_cost = this->params_.track_coeff * track_val;
+  const float goal_cost = computeGoalCost(x_pos, y_pos, yaw, vel);
   const float crash_cost = isCrashLatched(crash_status) || detectAndLatchCrash(x_pos, y_pos, yaw, timestep, crash_status) ? latchedCrashCost(crash_status) : 0.0F;
 
-  return speed_cost + track_cost + crash_cost;
+  return speed_cost + track_cost + goal_cost + crash_cost;
 }
 
 template <class CLASS_T, int NUM_TIMESTEPS, class PARAMS_T, class DYN_PARAMS_T>
@@ -353,9 +431,10 @@ float FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS, PARAMS_T, DYN_PARA
   const float vel_diff = vel - ref_v_[timestep];
   const float speed_cost = this->params_.speed_coeff * (vel_diff * vel_diff);
   const float track_cost = this->params_.track_coeff * track_val;
+  const float goal_cost = computeGoalCost(x_pos, y_pos, yaw, vel);
   const float crash_cost = isCrashLatched(crash_status) || detectAndLatchCrash(x_pos, y_pos, yaw, timestep, crash_status) ? latchedCrashCost(crash_status) : 0.0F;
 
-  return speed_cost + track_cost + crash_cost;
+  return speed_cost + track_cost + goal_cost + crash_cost;
 }
 
 template <class CLASS_T, int NUM_TIMESTEPS, class PARAMS_T, class DYN_PARAMS_T>
@@ -388,9 +467,14 @@ __device__ float FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS, PARAMS_
                                                                                                             float* theta_c)
 {
   (void)theta_c;
-  const float track_val =
-      computeTrackValue(y[static_cast<int>(O::BASELINK_POS_I_X)], y[static_cast<int>(O::BASELINK_POS_I_Y)]);
-  return this->params_.track_coeff * track_val * 10.0F;
+  const float x_pos = y[static_cast<int>(O::BASELINK_POS_I_X)];
+  const float y_pos = y[static_cast<int>(O::BASELINK_POS_I_Y)];
+  const float yaw = y[static_cast<int>(O::YAW)];
+  const float vel = y[static_cast<int>(O::TOTAL_VELOCITY)];
+  const float track_val = computeTrackValue(x_pos, y_pos);
+  const float track_cost = this->params_.track_coeff * track_val * 10.0F;
+  const float goal_cost = computeGoalCost(x_pos, y_pos, yaw, vel) * this->params_.goal_terminal_scale;
+  return track_cost + goal_cost;
 }
 
 template <class CLASS_T, int NUM_TIMESTEPS, class PARAMS_T, class DYN_PARAMS_T>

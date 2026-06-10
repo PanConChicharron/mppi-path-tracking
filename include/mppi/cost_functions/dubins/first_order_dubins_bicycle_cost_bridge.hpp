@@ -78,6 +78,7 @@ inline void fillFirstOrderDubinsBicycleCostFromPathReference(
   float ref_x[NUM_TIMESTEPS];
   float ref_y[NUM_TIMESTEPS];
   float ref_v[NUM_TIMESTEPS];
+  float ref_yaw[NUM_TIMESTEPS];
 
   for (int t = 0; t < NUM_TIMESTEPS; ++t)
   {
@@ -85,9 +86,10 @@ inline void fillFirstOrderDubinsBicycleCostFromPathReference(
     ref_x[t] = ref[idx].x;
     ref_y[t] = ref[idx].y;
     ref_v[t] = ref[idx].v;
+    ref_yaw[t] = ref[idx].yaw;
   }
 
-  cost.setReferenceTrajectory(ref_x, ref_y, ref_v, NUM_TIMESTEPS);
+  cost.setReferenceTrajectory(ref_x, ref_y, ref_v, NUM_TIMESTEPS, ref_yaw);
 }
 
 }  // namespace cost
