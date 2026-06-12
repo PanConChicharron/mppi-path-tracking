@@ -32,7 +32,7 @@ struct FirstOrderDubinsBicycleCostParams : public CostParams<2>
   /** Ego OBB for parked-car collision (rear axle at pose; box center offset forward). */
   float ego_length = 0.55F * 1.5F;
   float ego_width = 0.28F * 1.5F;
-  float ego_axle_to_box_center = 0.2F;
+  float ego_axle_to_box_center = 0.2F * 1.5F;
   /** Added to ego half-length/width in OBB collision test (~standoff to obstacle surfaces). */
   float obstacle_collision_margin = 0.2F;
   /** Pull toward ref end position (Euclidean distance [m]); 0 disables. */
