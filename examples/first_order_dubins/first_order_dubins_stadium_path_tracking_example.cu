@@ -133,7 +133,7 @@ int main(int argc, char** argv)
 
   SAMPLER::SAMPLING_PARAMS_T sp{};
   sp.std_dev[static_cast<int>(FirstOrderDubinsBicycleParams::ControlIndex::ACCELERATION_CMD)] = 0.35F;
-  sp.std_dev[static_cast<int>(FirstOrderDubinsBicycleParams::ControlIndex::STEER_CMD)] = 0.03F;
+  sp.std_dev[static_cast<int>(FirstOrderDubinsBicycleParams::ControlIndex::STEER_CMD)] = 0.12F;
   sp.sum_strides = std::max(32, (kNumRollouts + 1023) / 1024);
   SAMPLER sampler(sp);
 
