@@ -16,7 +16,7 @@ struct FirstOrderDubinsBicycleCostParams : public CostParams<2>
   float speed_coeff = 500.0F;
   float track_coeff = 1000.0F;
   /** Per-violation crash penalty; latched crash_status counts violations (1=off-road or hit, 2=both). */
-  float crash_coeff = 1000000.0F;
+  float crash_coeff = 100000.0F;
   float boundary_threshold = 0.8F;
   /** Off-road if signed lateral offset exceeds these (path-left = +); <0 falls back to boundary_threshold. */
   float boundary_threshold_left = -1.0F;
@@ -32,7 +32,7 @@ struct FirstOrderDubinsBicycleCostParams : public CostParams<2>
   /** Ego OBB for parked-car collision (rear axle at pose; box center offset forward). */
   float ego_length = 0.55F * 1.5F;
   float ego_width = 0.28F * 1.5F;
-  float ego_axle_to_box_center = 0.2F * 1.5F;
+  float ego_axle_to_box_center = 0.2F;
   /** Added to ego half-length/width in OBB collision test (~standoff to obstacle surfaces). */
   float obstacle_collision_margin = 0.2F;
   /** Pull toward ref end position (Euclidean distance [m]); 0 disables. */
