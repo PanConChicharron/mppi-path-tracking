@@ -3,6 +3,7 @@
  */
 #pragma once
 
+#include <mppi/path/drivable_area.hpp>
 #include <mppi/path/path2d.hpp>
 #include <mppi/path/path_reference_generator.hpp>
 
@@ -351,6 +352,43 @@ inline void drawStraightCorridor(cv::Mat& img, const float x0, const float y0, c
   cv::addWeighted(overlay, 0.35, img, 0.65, 0, img);
   cv::line(img, poly[0], poly[1], cv::Scalar(120, 120, 120), 1, cv::LINE_AA);
   cv::line(img, poly[2], poly[3], cv::Scalar(120, 120, 120), 1, cv::LINE_AA);
+}
+
+/** Fill a closed world-frame polygon with semi-transparent color. */
+inline void drawFilledPolygon(cv::Mat& img, const path::Polygon2D& poly, const cv::Scalar& fill,
+                              const cv::Scalar& outline, const float overlay_alpha = 0.35F,
+                              const float scale = 15.0F)
+{
+  if (poly.empty())
+  {
+    return;
+  }
+
+  std::vector<cv::Point> px(poly.size());
+  for (size_t i = 0; i < poly.size(); ++i)
+  {
+    const cv::Point2f p = worldToPixel(poly.x[i], poly.y[i], img.cols, img.rows, scale);
+    px[i] = cv::Point(static_cast<int>(p.x + 0.5F), static_cast<int>(p.y + 0.5F));
+  }
+
+  cv::Mat overlay = img.clone();
+  const cv::Point* pts = px.data();
+  const int n_pts = static_cast<int>(px.size());
+  cv::fillPoly(overlay, &pts, &n_pts, 1, fill);
+  cv::addWeighted(overlay, overlay_alpha, img, 1.0F - overlay_alpha, 0, img);
+  cv::polylines(img, px, true, outline, 1, cv::LINE_AA);
+}
+
+/** Full drivable road surface (both lanes, etc.). */
+inline void drawDrivableAreaPolygon(cv::Mat& img, const path::Polygon2D& poly, const float scale = 15.0F)
+{
+  drawFilledPolygon(img, poly, cv::Scalar(235, 245, 235), cv::Scalar(120, 180, 120), 0.4F, scale);
+}
+
+/** Soft trajectory deviation corridor (track_cost band around reference path). */
+inline void drawTrajectoryCorridorPolygon(cv::Mat& img, const path::Polygon2D& poly, const float scale = 15.0F)
+{
+  drawFilledPolygon(img, poly, cv::Scalar(245, 250, 255), cv::Scalar(40, 90, 200), 0.35F, scale);
 }
 
 /** Layout for stacked time-series strips under the track view. */

@@ -15,6 +15,7 @@
 #include <mppi/controllers/MPPI/mppi_controller.cuh>
 #include <mppi/dynamics/dubins/first_order_dubins_bicycle.cuh>
 #include <mppi/feedback_controllers/zero_feedback.cuh>
+#include <mppi/path/drivable_area.hpp>
 #include <mppi/path/path_projection.hpp>
 #include <mppi/path/path_reference_generator.hpp>
 #include <mppi/path/path2d.hpp>
@@ -177,10 +178,13 @@ int main(int argc, char** argv)
   std::vector<float> obs_half_length;
   std::vector<float> obs_half_width;
 
+  const mppi::path::Polygon2D drivable_poly = mppi::path::twoLaneRoadPolygon();
+  const mppi::path::Polygon2D trajectory_poly =
+      mppi::path::pathCorridorPolygon(path, kBoundaryLeft, kBoundaryRight);
+
   cv::Mat base_frame = mppi::viz::makeWhiteFrame(1024, 1024);
-  mppi::viz::drawStraightCorridor(base_frame, kLeftLaneX, kRoadYStart, kLeftLaneX, kRoadYEnd, kLaneHalfWidth);
-  mppi::viz::drawStraightCorridor(base_frame, kRightLaneX, kRoadYStart, kRightLaneX, kRoadYEnd, kLaneHalfWidth);
-  mppi::viz::drawAsymmetricRoadBoundaries(base_frame, path, kBoundaryLeft, kBoundaryRight);
+  mppi::viz::drawDrivableAreaPolygon(base_frame, drivable_poly);
+  mppi::viz::drawTrajectoryCorridorPolygon(base_frame, trajectory_poly);
   mppi::viz::drawCenterline(base_frame, path);
 
   const mppi::viz::TimeSeriesPlotLayout& plot_layout = mppi::viz::defaultTimeSeriesPlotLayout();
