@@ -1,3 +1,4 @@
 [submodule "lib/MPPI-Generic"]
 	path = lib/MPPI-Generic
-	url = https://github.com/ACDSLab/MPPI-Generic.git
+	url = https://github.com/PanConChicharron/MPPI-Generic.git
+	branch = main
