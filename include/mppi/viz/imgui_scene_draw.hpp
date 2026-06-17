@@ -61,7 +61,7 @@ inline void drawFilledPolygon(ImDrawList* draw_list, const std::vector<float>& x
   {
     pts[i] = worldToScreen(x[i], y[i], camera, origin, size);
   }
-  draw_list->AddConvexPolyFilled(pts.data(), static_cast<int>(pts.size()), color.toImU32());
+  draw_list->AddConcavePolyFilled(pts.data(), static_cast<int>(pts.size()), color.toImU32());
 }
 
 inline void drawPolylineLoop(ImDrawList* draw_list, const std::vector<float>& x, const std::vector<float>& y,

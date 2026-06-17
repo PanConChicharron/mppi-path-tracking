@@ -167,7 +167,6 @@ int main(int argc, char** argv)
   mppi::viz::PathTrackingStaticScene scene{};
   scene.centerline = mppi::viz::polylineFromPath(path);
   scene.trajectory_corridor = mppi::path::symmetricPathCorridorPolygon(path, kRoadHalfWidth);
-  scene.drivable = scene.trajectory_corridor;
   scene.extra_corridors.push_back(
       mppi::path::straightCorridorPolygon(-120.0F, -2.5F, 55.0F, -2.5F, kCrossStreetHalfWidth * 0.9F));
   scene.extra_corridors.push_back(
