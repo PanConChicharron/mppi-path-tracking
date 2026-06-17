@@ -1,2 +1,3 @@
 # Path-tracking extensions are header-only under ../include/mppi/.
-# Add compiled sources here if needed in the future.
+# Compiled visualization / UI helpers live in subdirectories.
+add_subdirectory(viz)

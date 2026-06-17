@@ -34,7 +34,7 @@ struct Polygon2D
 
 /** Corridor along a path: left boundary forward, right boundary backward. */
 inline Polygon2D pathCorridorPolygon(const Path2D& path, const float left_half, const float right_half,
-                                     const float sample_spacing = 0.5F)
+                                     const float sample_spacing = 0.5F, const int max_vertices = 0)
 {
   Polygon2D poly;
   const float path_length = path.length();
@@ -43,7 +43,13 @@ inline Polygon2D pathCorridorPolygon(const Path2D& path, const float left_half, 
     return poly;
   }
 
-  const float spacing = std::max(sample_spacing, path_length / 256.0F);
+  float spacing = std::max(sample_spacing, path_length / 256.0F);
+  if (max_vertices >= 6)
+  {
+    const float max_spacing = path_length / (static_cast<float>(max_vertices) * 0.5F - 2.0F);
+    spacing = std::max(spacing, max_spacing);
+  }
+
   std::vector<float> left_x;
   std::vector<float> left_y;
   std::vector<float> right_x;
@@ -79,9 +85,9 @@ inline Polygon2D pathCorridorPolygon(const Path2D& path, const float left_half, 
 }
 
 inline Polygon2D symmetricPathCorridorPolygon(const Path2D& path, const float half_width,
-                                              const float sample_spacing = 0.5F)
+                                              const float sample_spacing = 0.5F, const int max_vertices = 0)
 {
-  return pathCorridorPolygon(path, half_width, half_width, sample_spacing);
+  return pathCorridorPolygon(path, half_width, half_width, sample_spacing, max_vertices);
 }
 
 /** Axis-aligned rectangle for a straight road segment. */

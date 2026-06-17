@@ -20,17 +20,14 @@
 #include <mppi/sampling_distributions/gaussian/gaussian.cuh>
 #include <mppi/sampling_distributions/diffusion/obstacle_context.hpp>
 
-#include <mppi/viz/path_tracking_viz.hpp>
+#include <mppi/path/drivable_area.hpp>
+#include <mppi/viz/path_tracking_viewer.hpp>
+#include <mppi/viz/rollout_viz_gpu.cuh>
 #include <mppi/utils/step_timing.hpp>
-
-#include <opencv2/opencv.hpp>
 
 #include <algorithm>
 #include <cmath>
-#include <fstream>
-#include <iomanip>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace
@@ -42,6 +39,7 @@ namespace
   constexpr float kTargetSpeed = 2.5F;
   constexpr float kVMax = 5.0F;
   constexpr float kLambda = 1500.0F;
+  constexpr float kVideoFps = 30.0F;
 
   constexpr float kRoadHalfWidth = 0.8F;
   constexpr float kCrossStreetHalfWidth = 10.0F;
@@ -86,7 +84,6 @@ int main(int argc, char** argv)
   (void)seed;
   std::cout << "Using random seed: " << seed << std::endl;
 
-  const std::string video_path = "first_order_dubins_intersection_giant_blocker.mp4";
   std::string log_path = "first_order_dubins_intersection_giant_blocker_log.csv";
   if (argc > 2)
   {
@@ -169,20 +166,17 @@ int main(int argc, char** argv)
   std::vector<float> obs_half_length;
   std::vector<float> obs_half_width;
 
-  cv::Mat base_frame = mppi::viz::makeWhiteFrame(1024, 1024);
-  mppi::viz::drawRoadBoundaries(base_frame, path, kRoadHalfWidth);
-  mppi::viz::drawStraightCorridor(base_frame, -55.0F, giant.y0, 60.0F, giant.y0, kCrossStreetHalfWidth);
-  mppi::viz::drawCenterline(base_frame, path);
-
-  const mppi::viz::TimeSeriesPlotLayout& plot_layout = mppi::viz::defaultTimeSeriesPlotLayout();
-  const cv::Size composite_size =
-      mppi::viz::compositeFrameSize(base_frame.cols, base_frame.rows, plot_layout);
-  cv::VideoWriter video(video_path, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), static_cast<int>(1.0F / kDt),
-                        composite_size);
-
-  cv::namedWindow("MPPI Giant Blocker", cv::WINDOW_NORMAL);
+  mppi::viz::PathTrackingViewer viewer;
+  mppi::viz::PathTrackingStaticScene scene{};
+  scene.trajectory_corridor = mppi::path::symmetricPathCorridorPolygon(path, kRoadHalfWidth);
+  scene.extra_corridors.push_back(
+      mppi::path::straightCorridorPolygon(-55.0F, giant.y0, 60.0F, giant.y0, kCrossStreetHalfWidth));
+  viewer.open("MPPI Giant Blocker", scene, p0.x, p0.y, "first_order_dubins_intersection_giant_blocker.mp4",
+              kVideoFps, kDt);
 
   mppi::viz::RunningTimeSeries signal_history;
+  const mppi::viz::PathTrackingEgoFootprint ego_fp{ kEgoLength, kEgoWidth, cost_params.ego_axle_to_box_center };
+  const mppi::viz::PathTrackingSignalLimits signal_limits{ kTargetSpeed, kVMax, dyn.min_accel, dyn.max_accel, kMaxSteer };
 
   mppi::timing::StepTimingCollector step_timing;
   step_timing.reserve(static_cast<size_t>(num_sim_steps));
@@ -191,9 +185,6 @@ int main(int argc, char** argv)
   const int state_y_idx = static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::POS_Y);
   const int output_x_idx = static_cast<int>(FirstOrderDubinsBicycleParams::OutputIndex::BASELINK_POS_I_X);
   const int output_y_idx = static_cast<int>(FirstOrderDubinsBicycleParams::OutputIndex::BASELINK_POS_I_Y);
-
-  const cv::Scalar kGiantFill(30, 120, 255);
-  const cv::Scalar kGiantOutline(10, 60, 200);
 
   for (int k = 0; k < num_sim_steps; ++k)
   {
@@ -232,7 +223,7 @@ int main(int argc, char** argv)
 
     controller.computeControl(x, 1);
     cudaStreamSynchronize(controller.stream_);
-    controller.calculateSampledStateTrajectories();
+    controller.launchSampledVisTrajectories();
 
     step_timing.endMppi();
 
@@ -251,31 +242,38 @@ int main(int argc, char** argv)
                                  kRolloutOutIdx, mppi::data::kDefaultTopRollouts, diffusion_context);
     step_timing.endDump();
 
-    const auto state_trajectory = controller.getActualStateSeq();
-    const auto sampled_trajectories = controller.getSampledOutputTrajectories();
-    const auto sampled_cost_trajs = controller.getSampledCostTrajectories();
-
-    std::vector<float> rollout_costs(sampled_cost_trajs.size());
-    for (size_t i = 0; i < sampled_cost_trajs.size(); ++i)
+    mppi::viz::PathTrackingVizFrame viz_frame{};
+    viz_frame.ref = ref;
+    viz_frame.ego_x = x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::POS_X));
+    viz_frame.ego_y = x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::POS_Y));
     {
-      rollout_costs[i] = sampled_cost_trajs[i].sum();
+      const auto device_view = controller.sampledVisDeviceView();
+      mppi::viz::RolloutVisDeviceView rollout_view{};
+      rollout_view.outputs_d = device_view.outputs_d;
+      rollout_view.costs_d = device_view.costs_d;
+      rollout_view.num_rollouts = device_view.num_rollouts;
+      rollout_view.num_timesteps = device_view.num_timesteps;
+      rollout_view.output_dim = device_view.output_dim;
+      rollout_view.stream = device_view.stream;
+      mppi::viz::fillRolloutsFromDevice(viz_frame.rollouts, rollout_view, output_x_idx, output_y_idx, kMppiHorizon);
     }
+    const auto state_trajectory = controller.getActualStateSeq();
+    mppi::viz::extractPolyline(state_trajectory, state_x_idx, state_y_idx, kMppiHorizon, viz_frame.planned);
+    viz_frame.ego_yaw = x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::YAW));
+    viz_frame.obstacles = mppi::cost::movingCarPosesAt(cross_traffic, sim_time);
+    viz_frame.vel = x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::VEL_X));
+    viz_frame.signals = signal_history;
+    viz_frame.sim_time = sim_time;
+    viz_frame.step = k;
+    viz_frame.total_steps = num_sim_steps;
 
-    const std::vector<mppi::cost::ParkedCarObstacle> cross_viz =
-        mppi::cost::movingCarPosesAt(cross_traffic, sim_time);
+    const mppi::path::PathProjection proj_pre = mppi::path::projectPoseOntoPath(
+        path, x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::POS_X)),
+        x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::POS_Y)), arcLength);
+    viz_frame.lat_err = proj_pre.signed_lateral_error;
+    viz_frame.baseline_cost = static_cast<float>(controller.getBaselineCost());
 
-    auto frame = base_frame.clone();
-    mppi::viz::drawReferencePath(frame, ref);
-    mppi::viz::drawSampledTrajectories(frame, sampled_trajectories, output_x_idx, output_y_idx, kMppiHorizon,
-                                       rollout_costs);
-    mppi::viz::drawTrajectory(frame, state_trajectory, state_x_idx, state_y_idx);
-    mppi::viz::drawParkedCars(frame, cross_viz, kGiantFill, kGiantOutline);
-    mppi::viz::drawEgoVehicleAtRearAxle(frame, x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::POS_X)),
-                                        x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::POS_Y)),
-                                        x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::YAW)), kEgoLength,
-                                        kEgoWidth, cost_params.ego_axle_to_box_center);
-
-    if (cv::waitKey(1) == 27)
+    if (!viewer.showFrame(viz_frame, ego_fp, signal_limits))
     {
       step_timing.endStepEarlyExit();
       break;
@@ -297,11 +295,6 @@ int main(int argc, char** argv)
     const float vel_x = x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::VEL_X));
     const float steer_state = x(static_cast<int>(FirstOrderDubinsBicycleParams::StateIndex::STEER_ANGLE));
     signal_history.push(t_end, vel_x, accel_cmd, steer_cmd, steer_state);
-
-    const cv::Mat composite = mppi::viz::composeFrameWithTimeSeriesPlots(
-        frame, signal_history, kTargetSpeed, kVMax, dyn.min_accel, dyn.max_accel, kMaxSteer, plot_layout);
-    video.write(composite);
-    mppi::viz::showCompositeFrame("MPPI Giant Blocker", composite, plot_layout);
     step_timing.endViz();
 
     const mppi::path::PathProjection proj = mppi::path::projectPoseOntoPath(
@@ -335,10 +328,10 @@ int main(int argc, char** argv)
     step_timing.endStep();
   }
 
+  viewer.close();
   data_mgr.close();
   step_timing.printReport();
   cost.freeCudaMem();
-  std::cout << "Wrote " << video_path << ", " << log_path << ", and rollout snapshots under "
-            << data_mgr.rolloutDirectory() << "\n";
+  std::cout << "Wrote " << log_path << " and rollout snapshots under " << data_mgr.rolloutDirectory() << "\n";
   return 0;
 }

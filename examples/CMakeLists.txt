@@ -8,8 +8,11 @@ foreach (T_FILE IN LISTS CUDA_TARGET_SRCS)
   target_include_directories(${T_NAME} PUBLIC
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+    ${CMAKE_SOURCE_DIR}/lib/MPPI-Generic/include/mppi/dynamics/racer_dubins
+    ${CMAKE_SOURCE_DIR}/lib/MPPI-Generic/include/mppi/dynamics/dubins
     ${OpenCV_INCLUDE_DIRS})
   target_link_libraries(${T_NAME}
     mppi_path_tracking
+    mppi_viz_gl
     ${OpenCV_LIBS})
 endforeach()

@@ -12,6 +12,7 @@ project(mppi-path-tracking LANGUAGES C CXX CUDA)
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 option(MPT_BUILD_EXAMPLES "Build path-tracking CUDA examples." ON)
+option(MPT_BUILD_TESTS "Build path-tracking GPU unit tests." ON)
 
 # MPPI-Generic is built as a dependency only (no upstream examples/tests).
 set(MPPI_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -31,6 +32,14 @@ target_include_directories(mppi_path_tracking BEFORE INTERFACE
 )
 target_link_libraries(mppi_path_tracking INTERFACE MPPI::MPPI)
 
+if (MPT_BUILD_EXAMPLES OR MPT_BUILD_TESTS)
+  add_subdirectory(src)
+endif()
+
 if (MPT_BUILD_EXAMPLES)
   add_subdirectory(examples)
+endif()
+
+if (MPT_BUILD_TESTS)
+  add_subdirectory(tests)
 endif()

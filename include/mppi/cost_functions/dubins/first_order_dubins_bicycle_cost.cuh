@@ -52,6 +52,7 @@ class FirstOrderDubinsBicycleCostImpl : public Cost<CLASS_T, PARAMS_T, DYN_PARAM
 {
 public:
   static constexpr int kMaxObstacles = 64;
+  static constexpr int kMaxDrivablePolygonVertices = 1024;
 
   using PARENT_CLASS = Cost<CLASS_T, PARAMS_T, DYN_PARAMS_T>;
   using output_array = typename PARENT_CLASS::output_array;
@@ -74,6 +75,10 @@ public:
 
   void clearObstacles();
 
+  void setDrivableAreaPolygon(const float* x, const float* y, int count);
+
+  void clearDrivableArea();
+
   __host__ __device__ float computeTrackValue(float x, float y) const;
 
   /** Distance-to-goal cost vs ref[NUM_TIMESTEPS - 1] (position, speed, yaw). */
@@ -82,6 +87,9 @@ public:
   __host__ __device__ float computeSignedLateralOffset(float x, float y) const;
 
   __host__ __device__ bool isOffRoad(const float x, const float y) const;
+
+  /** True when outside drivable polygon (rear axle); falls back to ref lateral offset near the poly boundary. */
+  __host__ __device__ bool isEgoOutsideDrivableArea(const float x, const float y, const float yaw) const;
 
   __host__ __device__ bool egoIntersectsObstacleAtStep(const float x, const float y, const float yaw,
                                                        int timestep) const;
@@ -123,6 +131,9 @@ public:
   float obs_yaw_[kMaxObstacles][NUM_TIMESTEPS] = {};
   float obs_half_length_[kMaxObstacles] = {};
   float obs_half_width_[kMaxObstacles] = {};
+  int num_drivable_vertices_ = 0;
+  float drivable_poly_x_[kMaxDrivablePolygonVertices] = {};
+  float drivable_poly_y_[kMaxDrivablePolygonVertices] = {};
 
 private:
   void dataToDevice();
