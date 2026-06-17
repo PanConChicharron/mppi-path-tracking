@@ -15,6 +15,8 @@ struct FirstOrderDubinsBicycleCostParams : public CostParams<2>
   float desired_speed = 2.5F;
   float speed_coeff = 500.0F;
   float track_coeff = 1000.0F;
+  /** Pull toward ref heading at each horizon step: coeff * (yaw - ref_yaw[t])^2; 0 disables. */
+  float heading_coeff = 500.0F;
   /** Per-violation crash penalty; latched crash_status counts violations (1=off-road or hit, 2=both). */
   float crash_coeff = 100000.0F;
   float boundary_threshold = 0.8F;
@@ -80,6 +82,8 @@ public:
   void clearDrivableArea();
 
   __host__ __device__ float computeTrackValue(float x, float y) const;
+
+  __host__ __device__ float computeHeadingValue(float yaw, int timestep) const;
 
   /** Distance-to-goal cost vs ref[NUM_TIMESTEPS - 1] (position, speed, yaw). */
   __host__ __device__ float computeGoalCost(float x, float y, float yaw, float vel) const;

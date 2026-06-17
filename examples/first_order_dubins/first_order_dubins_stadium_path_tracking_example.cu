@@ -116,7 +116,6 @@ int main(int argc, char** argv)
   FirstOrderDubinsBicycleCostParams<kRefHorizon> cost_params;
   cost_params.desired_speed = kTargetSpeed;
   cost_params.boundary_threshold = kRoadHalfWidth;
-  cost_params.speed_coeff = 3000.0F;
   mppi::cost::fillFirstOrderDubinsBicycleCostGeometry<kRefHorizon>(cost_params, dyn);
   constexpr float kEgoLength = 0.55F * 1.5F;
   constexpr float kEgoWidth = 0.28F * 1.5F;

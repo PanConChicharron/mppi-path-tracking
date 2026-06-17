@@ -257,6 +257,25 @@ __host__ __device__ float FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS
 
 template <class CLASS_T, int NUM_TIMESTEPS, class PARAMS_T, class DYN_PARAMS_T>
 __host__ __device__ float
+FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS, PARAMS_T, DYN_PARAMS_T>::computeHeadingValue(
+    const float yaw, const int timestep) const
+{
+  int t = timestep;
+  if (t < 0)
+  {
+    t = 0;
+  }
+  else if (t >= NUM_TIMESTEPS)
+  {
+    t = NUM_TIMESTEPS - 1;
+  }
+
+  const float yaw_diff = angle_utils::shortestAngularDistance(yaw, ref_yaw_[t]);
+  return yaw_diff * yaw_diff;
+}
+
+template <class CLASS_T, int NUM_TIMESTEPS, class PARAMS_T, class DYN_PARAMS_T>
+__host__ __device__ float
 FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS, PARAMS_T, DYN_PARAMS_T>::computeGoalCost(const float x,
                                                                                                  const float y,
                                                                                                  const float yaw,
@@ -462,10 +481,11 @@ __device__ float FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS, PARAMS_
   const float vel_diff = vel - ref_v_[timestep];
   const float speed_cost = this->params_.speed_coeff * (vel_diff * vel_diff);
   const float track_cost = this->params_.track_coeff * track_val;
+  const float heading_cost = this->params_.heading_coeff * computeHeadingValue(yaw, timestep);
   const float goal_cost = computeGoalCost(x_pos, y_pos, yaw, vel);
   const float crash_cost = isCrashLatched(crash_status) || detectAndLatchCrash(x_pos, y_pos, yaw, timestep, crash_status) ? latchedCrashCost(crash_status) : 0.0F;
 
-  return speed_cost + track_cost + goal_cost + crash_cost;
+  return speed_cost + track_cost + heading_cost + goal_cost + crash_cost;
 }
 
 template <class CLASS_T, int NUM_TIMESTEPS, class PARAMS_T, class DYN_PARAMS_T>
@@ -481,10 +501,11 @@ float FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS, PARAMS_T, DYN_PARA
   const float vel_diff = vel - ref_v_[timestep];
   const float speed_cost = this->params_.speed_coeff * (vel_diff * vel_diff);
   const float track_cost = this->params_.track_coeff * track_val;
+  const float heading_cost = this->params_.heading_coeff * computeHeadingValue(yaw, timestep);
   const float goal_cost = computeGoalCost(x_pos, y_pos, yaw, vel);
   const float crash_cost = isCrashLatched(crash_status) || detectAndLatchCrash(x_pos, y_pos, yaw, timestep, crash_status) ? latchedCrashCost(crash_status) : 0.0F;
 
-  return speed_cost + track_cost + goal_cost + crash_cost;
+  return speed_cost + track_cost + heading_cost + goal_cost + crash_cost;
 }
 
 template <class CLASS_T, int NUM_TIMESTEPS, class PARAMS_T, class DYN_PARAMS_T>
@@ -523,8 +544,10 @@ __device__ float FirstOrderDubinsBicycleCostImpl<CLASS_T, NUM_TIMESTEPS, PARAMS_
   const float vel = y[static_cast<int>(O::TOTAL_VELOCITY)];
   const float track_val = computeTrackValue(x_pos, y_pos);
   const float track_cost = this->params_.track_coeff * track_val * 10.0F;
+  const float heading_cost =
+      this->params_.heading_coeff * computeHeadingValue(yaw, NUM_TIMESTEPS - 1) * 10.0F;
   const float goal_cost = computeGoalCost(x_pos, y_pos, yaw, vel) * this->params_.goal_terminal_scale;
-  return track_cost + goal_cost;
+  return track_cost + heading_cost + goal_cost;
 }
 
 template <class CLASS_T, int NUM_TIMESTEPS, class PARAMS_T, class DYN_PARAMS_T>

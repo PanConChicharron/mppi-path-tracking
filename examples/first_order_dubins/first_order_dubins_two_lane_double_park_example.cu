@@ -128,8 +128,6 @@ int main(int argc, char** argv)
   cost_params.boundary_threshold_left = kBoundaryLeft;
   cost_params.boundary_threshold_right = kBoundaryRight;
   // Per-step goal pull penalizes leaving the centerline; this scenario needs a right-lane weave.
-  cost_params.goal_pos_coeff = 0.0F;
-  cost_params.speed_coeff = 3000.0F;
   mppi::cost::fillFirstOrderDubinsBicycleCostGeometry<kRefHorizon>(cost_params, dyn);
   constexpr float kEgoLength = 0.55F * 1.5F;
   constexpr float kEgoWidth = 0.28F * 1.5F;
