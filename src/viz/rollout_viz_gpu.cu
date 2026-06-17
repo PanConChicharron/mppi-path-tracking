@@ -11,7 +11,7 @@
 namespace
 {
 __global__ void sumSampledRolloutCostsKernel(const float* __restrict__ costs_d, const int num_rollouts,
-                                             const int costs_per_rollout, float* __restrict__ totals_d)
+                                             const int num_timesteps, float* __restrict__ totals_d)
 {
   const int rollout = blockIdx.x;
   if (rollout >= num_rollouts)
@@ -19,10 +19,12 @@ __global__ void sumSampledRolloutCostsKernel(const float* __restrict__ costs_d, 
     return;
   }
 
+  // visualizeCostKernel layout: running costs at rollout * num_timesteps + t,
+  // terminal at rollout * (num_timesteps + 1) + num_timesteps (not a contiguous T+1 block).
   float sum = 0.0F;
-  for (int t = threadIdx.x; t < costs_per_rollout; t += blockDim.x)
+  for (int t = threadIdx.x; t < num_timesteps; t += blockDim.x)
   {
-    sum += costs_d[rollout * costs_per_rollout + t];
+    sum += costs_d[rollout * num_timesteps + t];
   }
 
   __shared__ float shared_sum[256];
@@ -40,7 +42,7 @@ __global__ void sumSampledRolloutCostsKernel(const float* __restrict__ costs_d, 
 
   if (threadIdx.x == 0)
   {
-    totals_d[rollout] = shared_sum[0];
+    totals_d[rollout] = shared_sum[0] + costs_d[rollout * (num_timesteps + 1) + num_timesteps];
   }
 }
 
@@ -162,10 +164,9 @@ bool fillRolloutsFromDevice(std::vector<VizRollout>& out, const RolloutVisDevice
   RolloutVizGpuCache& cache = rolloutVizCache();
   cache.ensure(view.num_rollouts, draw_n, cols);
 
-  const int costs_per_rollout = view.num_timesteps + 1;
   const int block_size = 256;
   sumSampledRolloutCostsKernel<<<view.num_rollouts, block_size, 0, view.stream>>>(
-      view.costs_d, view.num_rollouts, costs_per_rollout, cache.totals_d);
+      view.costs_d, view.num_rollouts, view.num_timesteps, cache.totals_d);
   HANDLE_ERROR(cudaGetLastError());
 
   std::vector<float> totals(static_cast<size_t>(view.num_rollouts));
