@@ -128,8 +128,7 @@ int main(int argc, char** argv)
       mppi::path::symmetricPathCorridorPolygon(path, kRoadHalfWidth);
   // Cost polygon is slightly wider than viz so ego corners on curves stay inside; crash uses axle-in-polygon
   // with ref-lateral fallback at the discretized boundary.
-  mppi::cost::fillFirstOrderDubinsBicycleCostStadiumDrivablePolygon<kRefHorizon>(cost, path, kRoadHalfWidth,
-                                                                                  0.5F * kEgoWidth);
+  mppi::cost::fillFirstOrderDubinsBicycleCostStadiumDrivablePolygon<kRefHorizon>(cost, path, kRoadHalfWidth);
 
   const float kMaxSteer = dyn.max_steer_angle;
   std::array<float2, DYN::CONTROL_DIM> u_rng{};
