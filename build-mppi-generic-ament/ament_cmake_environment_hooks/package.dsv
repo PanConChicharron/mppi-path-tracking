@@ -1,0 +1,4 @@
+source;share/MPPI-Generic/local_setup.bash
+source;share/MPPI-Generic/local_setup.dsv
+source;share/MPPI-Generic/local_setup.sh
+source;share/MPPI-Generic/local_setup.zsh

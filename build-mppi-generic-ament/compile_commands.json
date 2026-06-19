@@ -1,0 +1,17 @@
+[
+{
+  "directory": "/home/arjunram/Workspace/mppi-path-tracking/build-mppi-generic-ament/submodules/cnpy",
+  "command": "/usr/lib/ccache/g++ -Dcnpy_EXPORTS   -Wuninitialized -Wall -Wno-unused-variable -Wno-unused-but-set-variable -O3 -DNDEBUG -fPIC -std=gnu++11 -o CMakeFiles/cnpy.dir/cnpy.cpp.o -c /home/arjunram/Workspace/mppi-path-tracking/lib/MPPI-Generic/submodules/cnpy/cnpy.cpp",
+  "file": "/home/arjunram/Workspace/mppi-path-tracking/lib/MPPI-Generic/submodules/cnpy/cnpy.cpp"
+},
+{
+  "directory": "/home/arjunram/Workspace/mppi-path-tracking/build-mppi-generic-ament/submodules/cnpy",
+  "command": "/usr/lib/ccache/g++    -Wuninitialized -Wall -Wno-unused-variable -Wno-unused-but-set-variable -O3 -DNDEBUG -std=gnu++11 -o CMakeFiles/cnpy-static.dir/cnpy.cpp.o -c /home/arjunram/Workspace/mppi-path-tracking/lib/MPPI-Generic/submodules/cnpy/cnpy.cpp",
+  "file": "/home/arjunram/Workspace/mppi-path-tracking/lib/MPPI-Generic/submodules/cnpy/cnpy.cpp"
+},
+{
+  "directory": "/home/arjunram/Workspace/mppi-path-tracking/build-mppi-generic-ament/submodules/cnpy",
+  "command": "/usr/lib/ccache/g++    -Wuninitialized -Wall -Wno-unused-variable -Wno-unused-but-set-variable -O3 -DNDEBUG -std=gnu++11 -o CMakeFiles/example1.dir/example1.cpp.o -c /home/arjunram/Workspace/mppi-path-tracking/lib/MPPI-Generic/submodules/cnpy/example1.cpp",
+  "file": "/home/arjunram/Workspace/mppi-path-tracking/lib/MPPI-Generic/submodules/cnpy/example1.cpp"
+}
+]
